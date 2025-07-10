@@ -31,7 +31,7 @@ class WeatherBot(
     fun createBot(): Bot {
         return bot {
             timeout = BOT_ANSWER_TIMEOUT
-            botToken
+            System.getenv("BOT_TOKEN")
             logLevel = LogLevel.Error
 
             dispatch {
@@ -144,7 +144,7 @@ class WeatherBot(
             CoroutineScope(Dispatchers.IO).launch {
                 val currentWeather = weatherRepository.getCurrentWeather(
                     session.country,
-                    apiKey,
+                    System.getenv("API_KEY"),
                     METRIC
                 )
                 bot.sendMessage(
