@@ -21,7 +21,7 @@ class WeatherRepository(
 
     suspend fun getReverseGeocodingCountryName(latitude: String, longitude: String, format: String): ReversedCountry {
         return withContext(Dispatchers.IO) {
-            reversedGeocodingApi.getCountryNameByCoordinates(latitude, longitude, "jsonv2")
+            reversedGeocodingApi.getCountryNameByCoordinates(latitude, longitude, "json")
         }.await()
     }
 

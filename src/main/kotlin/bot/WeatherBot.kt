@@ -5,6 +5,7 @@ import com.github.kotlintelegrambot.bot
 import com.github.kotlintelegrambot.dispatch
 import com.github.kotlintelegrambot.dispatcher.*
 import com.github.kotlintelegrambot.entities.ChatAction
+import com.github.kotlintelegrambot.entities.ChatId
 import com.github.kotlintelegrambot.entities.InlineKeyboardMarkup
 import com.github.kotlintelegrambot.entities.TelegramFile
 import com.github.kotlintelegrambot.entities.keyboard.InlineKeyboardButton
@@ -41,31 +42,42 @@ class WeatherBot(
         }
     }
     private fun Dispatcher.setupCallbacks() {
-        callbackQuery(callbackData = "getMyLocation") {
+        callbackQuery("getMyLocation") {
             sessionManager.getOrCreateSession(chatId.chatId)
             bot.sendMessage(
                 chatId = chatId,
-                text = "Введи свой город",
+                text = """
+                📍 Отправь мне свою геопозицию через Telegram.
+                
+                Нажми на 📎 (или ➕ в поле ввода) → «Местоположение» → «Отправить».
+            """.trimIndent(),
             )
+        }
             location {
-                CoroutineScope(Dispatchers.IO).launch {
-                    val session = sessionManager.getOrCreateSession(chatId.chatId)
-                    session.country = weatherRepository.getReverseGeocodingCountryName(
-                        location.latitude.toString(),
-                        location.longitude.toString(),
-                        "jsonv2",
-                    ).address.country
+                val currentChatId = ChatId.fromId(message.chat.id)
+                val userId = message.chat.id
+                val latitude = location.latitude.toString()
+                val longitude = location.longitude.toString()
+                println("Получена геопозиция: lat=$latitude, lon=$longitude")
 
+                CoroutineScope(Dispatchers.IO).launch {
+
+                    val country = weatherRepository.getReverseGeocodingCountryName(
+                        latitude,
+                        longitude,
+                        "json",
+                    ).address.city
+                    sessionManager.getOrCreateSession(userId).country = country
                     bot.sendMessage(
-                        chatId = chatId,
-                        text = "Твой город: ${session.country}, верно?\nЕсли неверно, скинь локацию еще раз",
+                        chatId = currentChatId,
+                        text = "Твой город: ${country}, верно?\nЕсли неверно, скинь локацию еще раз",
                         replyMarkup = InlineKeyboardMarkup.create(
                             listOf(InlineKeyboardButton.CallbackData("Да, верно", "yes_label"))
                         )
                     )
                 }
             }
-        }
+
 
         callbackQuery("enterManually") {
             sessionManager.getOrCreateSession(chatId.chatId)
@@ -86,7 +98,7 @@ class WeatherBot(
             }
         }
 
-        callbackQuery(callbackData = "yes_label") {
+        callbackQuery("yes_label") {
             val session = sessionManager.getOrCreateSession(chatId.chatId)
             bot.apply {
                 sendAnimation(
@@ -123,7 +135,7 @@ class WeatherBot(
                     chatId = chatId,
                     text = "Если вы хотите узнать погоду в другом городе или еще раз, введите /weather"
                 )
-                session.country = ""
+                sessionManager.clearSession(chatId.chatId)
             }
         }
     }
