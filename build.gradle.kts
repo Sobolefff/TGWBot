@@ -16,7 +16,6 @@ repositories {
 }
 
 dependencies {
-    implementation("io.github.cdimascio:dotenv-kotlin:6.5.1")
     implementation("io.github.kotlin-telegram-bot.kotlin-telegram-bot:telegram:6.0.6")
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.0")
