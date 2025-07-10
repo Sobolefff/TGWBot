@@ -7,6 +7,8 @@ import org.example.data.remote.RetrofitType
 import org.example.data.remote.repository.WeatherRepository
 
 fun main() {
+    println("BOT_TOKEN: ${System.getenv("BOT_TOKEN")}")
+    println("API_KEY: ${System.getenv("API_KEY")}")
     val retrofitClient = RetrofitClient()
 
     val weatherRetrofit = retrofitClient.getRetrofit(RetrofitType.WEATHER)
