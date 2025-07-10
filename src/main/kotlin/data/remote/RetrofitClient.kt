@@ -7,13 +7,9 @@ import org.example.data.remote.api.ReversedGeocodingApi
 import org.example.data.remote.api.WeatherApi
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
-import io.github.cdimascio.dotenv.Dotenv
 
-private const val WEATHER_BASE_URL = "http://api.weatherapi.com/v1/"
+private const val WEATHER_BASE_URL = "https://api.openweathermap.org/data/2.5/"
 private const val REVERSE_GEOCODING_BASE_URL = "https://nominatim.openstreetmap.org/"
-val dotenv: Dotenv = Dotenv.load()
-
-private var API_KEY = dotenv["API_KEYy"]
 
 enum class RetrofitType(val baseUrl: String) {
     WEATHER(WEATHER_BASE_URL),
@@ -36,6 +32,8 @@ class RetrofitClient {
             .addCallAdapterFactory(CoroutineCallAdapterFactory.invoke())
             .addConverterFactory(GsonConverterFactory.create())
             .build()
+
+
 
 
 

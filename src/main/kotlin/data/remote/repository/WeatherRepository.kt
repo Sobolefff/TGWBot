@@ -12,15 +12,16 @@ class WeatherRepository(
     private val reversedGeocodingApi: ReversedGeocodingApi,
 ) {
 
-    suspend fun getCurrentWeather(apiKey: String, countryName: String, airQualityData: String): CurrentWeather {
+    suspend fun getCurrentWeather(countryName: String, apiKey: String, units: String): CurrentWeather {
         return withContext(Dispatchers.IO) {
-            weatherApi.getCurrentWeather(apiKey, countryName, airQualityData)
+            weatherApi.getCurrentWeather(countryName, apiKey, units)
+
         }.await()
     }
 
     suspend fun getReverseGeocodingCountryName(latitude: String, longitude: String, format: String): ReversedCountry {
         return withContext(Dispatchers.IO) {
-            reversedGeocodingApi.getCountryNameByCoordinates(latitude, longitude, "json")
+            reversedGeocodingApi.getCountryNameByCoordinates(latitude, longitude, "jsonv2")
         }.await()
     }
 
