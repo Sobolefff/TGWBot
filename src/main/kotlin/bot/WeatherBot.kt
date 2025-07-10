@@ -62,19 +62,49 @@ class WeatherBot(
 
                 CoroutineScope(Dispatchers.IO).launch {
 
-                    val country = weatherRepository.getReverseGeocodingCountryName(
-                        latitude,
-                        longitude,
-                        "json",
-                    ).address.city
-                    sessionManager.getOrCreateSession(userId).country = country
-                    bot.sendMessage(
-                        chatId = currentChatId,
-                        text = "Твой город: ${country}, верно?\nЕсли неверно, скинь локацию еще раз",
-                        replyMarkup = InlineKeyboardMarkup.create(
-                            listOf(InlineKeyboardButton.CallbackData("Да, верно", "yes_label"))
+//                    val country = weatherRepository.getReverseGeocodingCountryName(
+//                        latitude,
+//                        longitude,
+//                        "json",
+//                    ).address.city
+//                    sessionManager.getOrCreateSession(userId).country = country
+//                    bot.sendMessage(
+//                        chatId = currentChatId,
+//                        text = "Твой город: ${country}, верно?\nЕсли неверно, скинь локацию еще раз",
+//                        replyMarkup = InlineKeyboardMarkup.create(
+//                            listOf(InlineKeyboardButton.CallbackData("Да, верно", "yes_label"))
+//                        )
+//                    )
+                    try {
+                        val response = weatherRepository.getReverseGeocodingCountryName(
+                            latitude,
+                            longitude,
+                            "jsonv"
                         )
-                    )
+
+                        val country = response.address.city
+                            ?: "Неизвестно"
+
+                        sessionManager.getOrCreateSession(userId).country = country
+
+                        val keyboard = InlineKeyboardMarkup.create(
+                            listOf(
+                                InlineKeyboardButton.CallbackData("Да, верно", "yes_label")
+                            )
+                        )
+
+                        bot.sendMessage(
+                            chatId = currentChatId,
+                            text = "Твой город: $country. Верно?\nЕсли неверно — отправь локацию ещё раз",
+                            replyMarkup = keyboard
+                        )
+                    } catch (e: Exception) {
+                        println("Ошибка при получении адреса по координатам: ${e.message}")
+                        bot.sendMessage(
+                            chatId = currentChatId,
+                            text = "Не удалось определить местоположение. Попробуйте снова или введите вручную."
+                        )
+                    }
                 }
             }
 

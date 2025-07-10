@@ -16,13 +16,13 @@ class WeatherRepository(
         return withContext(Dispatchers.IO) {
             weatherApi.getCurrentWeather(countryName, apiKey, units)
 
-        }.await()
+        }
     }
 
     suspend fun getReverseGeocodingCountryName(latitude: String, longitude: String, format: String): ReversedCountry {
         return withContext(Dispatchers.IO) {
             reversedGeocodingApi.getCountryNameByCoordinates(latitude, longitude, "json")
-        }.await()
+        }
     }
 
 }

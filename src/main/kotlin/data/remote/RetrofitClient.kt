@@ -1,6 +1,5 @@
 package org.example.data.remote
 
-import com.jakewharton.retrofit2.adapter.kotlin.coroutines.CoroutineCallAdapterFactory
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import org.example.data.remote.api.ReversedGeocodingApi
@@ -19,17 +18,25 @@ enum class RetrofitType(val baseUrl: String) {
 class RetrofitClient {
 
     fun getClient(): OkHttpClient {
-        val logging = HttpLoggingInterceptor()
+        val logging = HttpLoggingInterceptor().apply {
+            level = HttpLoggingInterceptor.Level.BODY
+        }
         logging.level = HttpLoggingInterceptor.Level.BODY
-        val okHttpClient = OkHttpClient.Builder()
+        return OkHttpClient.Builder()
+            .addInterceptor { chain ->
+                val newRequest = chain.request().newBuilder()
+                    .header("User-Agent", "MyWeatherApp/1.0 (petr.soboleff@gmail.com)")
+                    .build()
+                chain.proceed(newRequest)
+            }
             .addInterceptor(logging)
-        return okHttpClient.build()
+            .build()
     }
 
     fun getRetrofit(retrofitType: RetrofitType): Retrofit =
          Retrofit.Builder()
             .baseUrl(retrofitType.baseUrl)
-            .addCallAdapterFactory(CoroutineCallAdapterFactory.invoke())
+            .client(getClient())
             .addConverterFactory(GsonConverterFactory.create())
             .build()
 
