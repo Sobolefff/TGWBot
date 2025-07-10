@@ -1,5 +1,10 @@
 plugins {
+    application
     kotlin("jvm") version "2.0.10"
+    id("com.github.johnrengelman.shadow") version "8.1.1" // ✅ Shadow плагин
+}
+application {
+    mainClass.set("org.example.MainKt")
 }
 
 group = "org.example"
@@ -26,4 +31,14 @@ dependencies {
 
 tasks.test {
     useJUnitPlatform()
+}
+
+tasks.withType<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar> {
+    archiveBaseName.set("bot")
+    archiveClassifier.set("") // <--- важно! убираем -all
+    archiveVersion.set("")    // <--- убираем версию
+
+    manifest {
+        attributes["Main-Class"] = "org.example.MainKt"
+    }
 }
