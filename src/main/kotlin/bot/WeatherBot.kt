@@ -31,7 +31,7 @@ class WeatherBot(
     fun createBot(): Bot {
         return bot {
             timeout = BOT_ANSWER_TIMEOUT
-            System.getenv("BOT_TOKEN")
+            token = botToken
             logLevel = LogLevel.Error
 
             dispatch {
