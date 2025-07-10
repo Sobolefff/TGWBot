@@ -3,7 +3,6 @@ services:
     name: weather-bot
     env: docker
     buildCommand: ./gradlew shadowJar
-    startCommand: java -jar /app/bot.jar
     envVars:
       - key: BOT_TOKEN
         sync: false
