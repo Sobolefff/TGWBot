@@ -11,7 +11,6 @@ import com.github.kotlintelegrambot.entities.TelegramFile
 import com.github.kotlintelegrambot.entities.keyboard.InlineKeyboardButton
 import com.github.kotlintelegrambot.extensions.filters.Filter
 import com.github.kotlintelegrambot.logging.LogLevel
-import io.github.cdimascio.dotenv.Dotenv
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -25,14 +24,14 @@ private const val METRIC = "metric"
 
 class WeatherBot(
     private val weatherRepository: WeatherRepository,
-    private val dotenv: Dotenv = Dotenv.load(),
-    private val sessionManager: SessionManager = SessionManager(),
+    private val sessionManager: SessionManager,
 ) {
-
+    private val botToken = System.getenv("BOT_TOKEN") ?: error("BOT_TOKEN env var is missing")
+    private val apiKey = System.getenv("API_KEY") ?: error("API_KEY env var is missing")
     fun createBot(): Bot {
         return bot {
             timeout = BOT_ANSWER_TIMEOUT
-            token = dotenv["BOT_TOKEN"]
+            botToken
             logLevel = LogLevel.Error
 
             dispatch {
@@ -145,7 +144,7 @@ class WeatherBot(
             CoroutineScope(Dispatchers.IO).launch {
                 val currentWeather = weatherRepository.getCurrentWeather(
                     session.country,
-                    dotenv["API_KEY"],
+                    apiKey,
                     METRIC
                 )
                 bot.sendMessage(
