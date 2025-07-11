@@ -43,3 +43,7 @@ tasks.withType<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar> {
         attributes["Main-Class"] = "org.example.MainKt"
     }
 }
+
+tasks.register("stage") {
+    dependsOn("shadowJar")
+}
