@@ -5,6 +5,7 @@ import org.example.bot.session.SessionManager
 import org.example.data.remote.RetrofitClient
 import org.example.data.remote.RetrofitType
 import org.example.data.remote.repository.WeatherRepository
+import org.example.bot.utils.startHealthServer
 
 fun main() {
     startHealthServer()
