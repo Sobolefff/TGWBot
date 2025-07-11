@@ -6,7 +6,8 @@ import io.ktor.server.application.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 
-fun startHealthServer(port: Int = 8080) {
+fun startHealthServer() {
+    val port = System.getenv("PORT")?.toIntOrNull() ?: 8080
     embeddedServer(Netty, port = port) {
         routing {
             get("/health") {
