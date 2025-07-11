@@ -10,7 +10,7 @@ fun startHealthServer() {
     val port = System.getenv("PORT")?.toIntOrNull() ?: 8080
     embeddedServer(Netty, port = port) {
         routing {
-            get("/health") {
+            get("/") {
                 call.respondText("OK")
             }
         }
