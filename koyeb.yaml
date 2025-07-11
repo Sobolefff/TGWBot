@@ -1,1 +1,13 @@
-
+name: tgwbot
+build:
+  dockerfile: Dockerfile
+  args: {}
+run:
+  env:
+    PORT: 8080
+  ports:
+    - 8080
+  healthcheck:
+    path: /health
+    interval: 10
+    timeout: 5
