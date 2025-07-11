@@ -1,4 +1,4 @@
-package bot.utils
+package org.example.bot.utils
 
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
