@@ -25,6 +25,8 @@ dependencies {
     implementation(platform("com.squareup.okhttp3:okhttp-bom:4.9.3"))
     implementation("com.squareup.okhttp3:okhttp")
     implementation("com.squareup.okhttp3:logging-interceptor")
+implementation("io.ktor:ktor-server-netty:2.3.2")
+implementation("io.ktor:ktor-server-core:2.3.2")
 
 }
 
