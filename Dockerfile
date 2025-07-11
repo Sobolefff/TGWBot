@@ -14,3 +14,5 @@ WORKDIR /app
 COPY --from=builder /app/build/libs/*.jar /app/bot.jar
 
 CMD ["java", "-jar", "/app/bot.jar"]
+
+EXPOSE 8080
