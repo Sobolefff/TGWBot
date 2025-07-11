@@ -22,4 +22,8 @@ fun main() {
 
     val weatherBot = WeatherBot(weatherRepository, sessionManager).createBot()
     weatherBot.startPolling()
+    
+    while (true) {
+        Thread.sleep(1000)
+    }
 }
