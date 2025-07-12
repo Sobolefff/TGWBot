@@ -17,6 +17,8 @@ import kotlinx.coroutines.launch
 import org.example.bot.session.SessionManager
 import org.example.bot.utils.chatId
 import org.example.data.remote.repository.WeatherRepository
+import com.github.kotlintelegrambot.entities.keyboard.ReplyKeyboardMarkup
+import com.github.kotlintelegrambot.entities.keyboard.KeyboardButton
 
 private const val GIF_WAITING_URL = "https://media.tenor.com/OBEfKgDoCogAAAAC/pulp-fiction-john-travolta.gif"
 private const val BOT_ANSWER_TIMEOUT = 30
