@@ -61,19 +61,6 @@ class WeatherBot(
 
                 CoroutineScope(Dispatchers.IO).launch {
 
-//                    val country = weatherRepository.getReverseGeocodingCountryName(
-//                        latitude,
-//                        longitude,
-//                        "json",
-//                    ).address.city
-//                    sessionManager.getOrCreateSession(userId).country = country
-//                    bot.sendMessage(
-//                        chatId = currentChatId,
-//                        text = "Твой город: ${country}, верно?\nЕсли неверно, скинь локацию еще раз",
-//                        replyMarkup = InlineKeyboardMarkup.create(
-//                            listOf(InlineKeyboardButton.CallbackData("Да, верно", "yes_label"))
-//                        )
-//                    )
                     try {
                         val response = weatherRepository.getReverseGeocodingCountryName(
                             latitude,
