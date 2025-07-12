@@ -164,28 +164,30 @@ class WeatherBot(
                 )
             }
             command("weather") {
-                sessionManager.getOrCreateSession(chatId.chatId)
-                val inlineKeyboardMarkup = InlineKeyboardMarkup.create(
-                    listOf(
-                        InlineKeyboardButton.CallbackData(
-                            text = "Определить мой город по геолокации(для мобильных устройств)",
-                            callbackData = "getMyLocation",
-                        )
-                    ),
-                    listOf(
-                        InlineKeyboardButton.CallbackData(
-                            text = "Ввести город вручную",
-                            callbackData = "enterManually",
-                        )
-                    )
-                )
+    sessionManager.getOrCreateSession(chatId.chatId)
 
-                bot.sendMessage(
-                    chatId = chatId,
-                    text = "Мне нужно знать твой город!",
-                    replyMarkup = inlineKeyboardMarkup,
+    val locationRequestKeyboard = ReplyKeyboardMarkup(
+        keyboard = listOf(
+            listOf(
+                KeyboardButton(
+                    text = "📍 Определить мой город",
+                    requestLocation = true
                 )
-            }
+            ),
+            listOf(
+                KeyboardButton("✍ Ввести город вручную")
+            )
+        ),
+        resizeKeyboard = true,
+        oneTimeKeyboard = true
+    )
+
+    bot.sendMessage(
+        chatId = chatId,
+        text = "Пожалуйста, выбери способ определения твоего города:",
+        replyMarkup = locationRequestKeyboard
+    )
+}
         }
 
 }
