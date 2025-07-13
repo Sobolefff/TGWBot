@@ -11,7 +11,6 @@ import com.github.kotlintelegrambot.entities.keyboard.InlineKeyboardButton
 import com.github.kotlintelegrambot.entities.InlineKeyboardMarkup
 import com.github.kotlintelegrambot.extensions.filters.Filter
 import com.github.kotlintelegrambot.logging.LogLevel
-import com.github.kotlintelegrambot.network.fold
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -48,12 +47,13 @@ class WeatherBot(
         callbackQuery("getMyLocation") {
             sessionManager.getOrCreateSession(chatId.chatId)
 
+            // Получаем messageId из callbackQuery.message для удаления
             val toDelete = callbackQuery.message?.messageId
             if (toDelete != null) {
                 bot.deleteMessage(chatId = chatId, messageId = toDelete)
             }
 
-            val sent = bot.sendMessage(
+            bot.sendMessage(
                 chatId = chatId,
                 text = """
                 📍 Отправь мне свою геопозицию через Telegram.
@@ -62,14 +62,14 @@ class WeatherBot(
                 """.trimIndent(),
             )
 
-            val waitingMessageId = sent.fold({ it.messageId }, { null })
-
             location {
                 val latitude = location.latitude.toString()
                 val longitude = location.longitude.toString()
                 val userId = message.chat.id
                 val currentChatId = ChatId.fromId(userId)
 
+                // Удаляем сообщение с просьбой отправить локацию (если оно есть)
+                val waitingMessageId = callbackQuery.message?.messageId
                 if (waitingMessageId != null) {
                     bot.deleteMessage(chatId = currentChatId, messageId = waitingMessageId)
                 }
@@ -103,19 +103,20 @@ class WeatherBot(
 
         callbackQuery("enterManually") {
             sessionManager.getOrCreateSession(chatId.chatId)
+
             val toDelete = callbackQuery.message?.messageId
             if (toDelete != null) {
                 bot.deleteMessage(chatId = chatId, messageId = toDelete)
             }
 
-            val prompt = bot.sendMessage(
+            bot.sendMessage(
                 chatId = chatId,
                 text = "Введи свой город вручную",
             )
 
-            val promptMessageId = prompt.fold({ it.messageId }, { null })
-
             message(Filter.Text) {
+                val promptMessageId = message.messageId
+
                 if (promptMessageId != null) {
                     bot.deleteMessage(chatId = chatId, messageId = promptMessageId)
                 }
@@ -123,32 +124,30 @@ class WeatherBot(
                 val session = sessionManager.getOrCreateSession(chatId.chatId)
                 session.country = message.text.orEmpty()
 
-                val confirmation = bot.sendMessage(
-                    chatId = chatId,
-                    text = "Твой город: ${session.country}, верно?\nЕсли неверно, введи город еще раз",
-                    replyMarkup = InlineKeyboardMarkup.create(
-                        listOf(InlineKeyboardButton.CallbackData("Да, верно", "yes_label"))
-                    )
+                val confirmationKeyboard = InlineKeyboardMarkup.create(
+                    listOf(InlineKeyboardButton.CallbackData("Да, верно", "yes_label"))
                 )
 
-                session.confirmationMsgId = confirmation.fold({ it.messageId }, { null })
+                bot.sendMessage(
+                    chatId = chatId,
+                    text = "Твой город: ${session.country}, верно?\nЕсли неверно, введи город еще раз",
+                    replyMarkup = confirmationKeyboard
+                )
             }
         }
 
         callbackQuery("yes_label") {
             val session = sessionManager.getOrCreateSession(chatId.chatId)
 
-            val confirmMsgId = session.confirmationMsgId
+            val confirmMsgId = callbackQuery.message?.messageId
             if (confirmMsgId != null) {
                 bot.deleteMessage(chatId = chatId, messageId = confirmMsgId)
             }
 
-            val loading = bot.sendMessage(
+            bot.sendMessage(
                 chatId = chatId,
                 text = "Узнаем вашу погоду..."
             )
-
-            val loadingMessageId = loading.fold({ it.messageId }, { null })
 
             bot.sendChatAction(chatId = chatId, action = ChatAction.TYPING)
             bot.sendAnimation(chatId = chatId, animation = TelegramFile.ByUrl(GIF_WAITING_URL))
@@ -157,10 +156,6 @@ class WeatherBot(
                 val currentWeather = weatherRepository.getCurrentWeather(
                     session.country, apiKey, METRIC
                 )
-
-                if (loadingMessageId != null) {
-                    bot.deleteMessage(chatId = chatId, messageId = loadingMessageId)
-                }
 
                 bot.sendMessage(
                     chatId = chatId,
@@ -196,7 +191,7 @@ class WeatherBot(
         command("weather") {
             sessionManager.getOrCreateSession(chatId.chatId)
 
-            val sent = bot.sendMessage(
+            bot.sendMessage(
                 chatId = chatId,
                 text = "Мне нужно знать твой город!",
                 replyMarkup = InlineKeyboardMarkup.create(
@@ -214,14 +209,6 @@ class WeatherBot(
                     )
                 )
             )
-
-            val commandMessageId = sent.fold({ it.messageId }, { null })
-            if (commandMessageId != null) {
-                CoroutineScope(Dispatchers.IO).launch {
-                    kotlinx.coroutines.delay(5000)
-                    bot.deleteMessage(chatId = chatId, messageId = commandMessageId)
-                }
-            }
         }
     }
 }
