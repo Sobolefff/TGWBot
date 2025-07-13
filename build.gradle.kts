@@ -12,12 +12,7 @@ version = "1.0-SNAPSHOT"
 
 repositories {
     mavenCentral()
-    maven("https://jitpack.io") {
-        credentials {
-            username = "user"
-            password = "password"
-        }
-    }
+    maven { url = uri("https://jitpack.io")}
 }
 
 dependencies {
