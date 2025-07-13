@@ -12,17 +12,11 @@ version = "1.0-SNAPSHOT"
 
 repositories {
     mavenCentral()
-    maven("https://jitpack.io") {
-        credentials {
-            username = "user"
-            password = "password"
-        }
-    }
 }
 
 dependencies {
     //implementation("io.github.kotlin-telegram-bot.kotlin-telegram-bot:telegram:6.1.2")
-implementation("com.github.kotlin-telegram-bot:telegram:6.1.2")
+implementation("io.github.kotlin-telegram-bot:telegram:6.1.2")
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.0")
     // Retrofit
