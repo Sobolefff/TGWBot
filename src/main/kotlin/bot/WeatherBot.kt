@@ -28,6 +28,7 @@ class WeatherBot(
 ) {
     private val botToken = System.getenv("BOT_TOKEN") ?: error("BOT_TOKEN env var is missing")
     private val apiKey = System.getenv("API_KEY") ?: error("API_KEY env var is missing")
+
     fun createBot(): Bot {
         return bot {
             timeout = BOT_ANSWER_TIMEOUT
@@ -40,93 +41,112 @@ class WeatherBot(
             }
         }
     }
+
     private fun Dispatcher.setupCallbacks() {
         callbackQuery("getMyLocation") {
             sessionManager.getOrCreateSession(chatId.chatId)
-            bot.sendMessage(
+
+            val locationPromptMessage = bot.sendMessage(
                 chatId = chatId,
                 text = """
                 📍 Отправь мне свою геопозицию через Telegram.
                 
                 Нажми на 📎 (или ➕ в поле ввода) → «Местоположение» → «Отправить».
-            """.trimIndent(),
-            )
+                """.trimIndent()
+            ).getOrNull()
+
+            sessionManager.getOrCreateSession(chatId.chatId).tempMessageIds.add(locationPromptMessage?.messageId)
         }
-            location {
-                val currentChatId = ChatId.fromId(message.chat.id)
-                val userId = message.chat.id
-                val latitude = location.latitude.toString()
-                val longitude = location.longitude.toString()
-                println("Получена геопозиция: lat=$latitude, lon=$longitude")
 
-                CoroutineScope(Dispatchers.IO).launch {
+        location {
+            val currentChatId = ChatId.fromId(message.chat.id)
+            val userId = message.chat.id
+            val latitude = location.latitude.toString()
+            val longitude = location.longitude.toString()
+            println("Получена геопозиция: lat=$latitude, lon=$longitude")
 
-                    try {
-                        val response = weatherRepository.getReverseGeocodingCountryName(
-                            latitude,
-                            longitude,
-                            "json"
+            CoroutineScope(Dispatchers.IO).launch {
+                // Удаляем сообщение-подсказку
+                sessionManager.getOrCreateSession(userId).tempMessageIds.forEach {
+                    bot.deleteMessage(chatId = currentChatId, messageId = it ?: return@forEach)
+                }
+
+                try {
+                    val response = weatherRepository.getReverseGeocodingCountryName(
+                        latitude,
+                        longitude,
+                        "json"
+                    )
+
+                    val country = response.address.city ?: "Неизвестно"
+                    sessionManager.getOrCreateSession(userId).country = country
+
+                    val confirmCityMessage = bot.sendMessage(
+                        chatId = currentChatId,
+                        text = "Твой город: $country. Верно?\nЕсли неверно — отправь локацию ещё раз",
+                        replyMarkup = InlineKeyboardMarkup.create(
+                            listOf(InlineKeyboardButton.CallbackData("Да, верно", "yes_label"))
                         )
+                    ).getOrNull()
 
-                        val country = response.address.city
-                            ?: "Неизвестно"
-
-                        sessionManager.getOrCreateSession(userId).country = country
-
-                        val keyboard = InlineKeyboardMarkup.create(
-                            listOf(
-                                InlineKeyboardButton.CallbackData("Да, верно", "yes_label")
-                            )
-                        )
-
-                        bot.sendMessage(
-                            chatId = currentChatId,
-                            text = "Твой город: $country. Верно?\nЕсли неверно — отправь локацию ещё раз",
-                            replyMarkup = keyboard
-                        )
-                    } catch (e: Exception) {
-                        println("Ошибка при получении адреса по координатам: ${e.message}")
-                        bot.sendMessage(
-                            chatId = currentChatId,
-                            text = "Не удалось определить местоположение. Попробуйте снова или введите вручную."
-                        )
-                    }
+                    sessionManager.getOrCreateSession(userId).tempMessageIds.add(confirmCityMessage?.messageId)
+                } catch (e: Exception) {
+                    println("Ошибка при получении адреса по координатам: ${e.message}")
+                    bot.sendMessage(
+                        chatId = currentChatId,
+                        text = "Не удалось определить местоположение. Попробуйте снова или введите вручную."
+                    )
                 }
             }
-
+        }
 
         callbackQuery("enterManually") {
             sessionManager.getOrCreateSession(chatId.chatId)
-            bot.sendMessage(
+
+            val manualMessage = bot.sendMessage(
                 chatId = chatId,
                 text = "Введи свой город вручную",
-            )
+            ).getOrNull()
+
+            sessionManager.getOrCreateSession(chatId.chatId).tempMessageIds.add(manualMessage?.messageId)
+
             message(Filter.Text) {
                 val session = sessionManager.getOrCreateSession(chatId.chatId)
                 session.country = message.text.orEmpty()
-                bot.sendMessage(
+
+                // Удаляем "Введи свой город вручную"
+                session.tempMessageIds.forEach {
+                    bot.deleteMessage(chatId = chatId, messageId = it ?: return@forEach)
+                }
+
+                val confirmCityMessage = bot.sendMessage(
                     chatId = chatId,
                     text = "Твой город: ${session.country}, верно?\nЕсли неверно, введи город еще раз",
                     replyMarkup = InlineKeyboardMarkup.create(
                         listOf(InlineKeyboardButton.CallbackData("Да, верно", "yes_label"))
                     )
-                )
+                ).getOrNull()
+
+                session.tempMessageIds.clear()
+                session.tempMessageIds.add(confirmCityMessage?.messageId)
             }
         }
 
         callbackQuery("yes_label") {
             val session = sessionManager.getOrCreateSession(chatId.chatId)
-            bot.apply {
-                sendAnimation(
-                    chatId = chatId,
-                    animation = TelegramFile.ByUrl(GIF_WAITING_URL)
-                )
-                sendMessage(
-                    chatId = chatId,
-                    text = "Узнаем вашу погоду...",
-                )
-                sendChatAction(chatId = chatId, action = ChatAction.TYPING)
+
+            // Удаляем сообщение с подтверждением города
+            session.tempMessageIds.forEach {
+                bot.deleteMessage(chatId = chatId, messageId = it ?: return@forEach)
             }
+
+            val thinkingMessage = bot.sendMessage(
+                chatId = chatId,
+                text = "Узнаем вашу погоду...",
+            ).getOrNull()
+
+            bot.sendAnimation(chatId = chatId, animation = TelegramFile.ByUrl(GIF_WAITING_URL))
+            bot.sendChatAction(chatId = chatId, action = ChatAction.TYPING)
 
             CoroutineScope(Dispatchers.IO).launch {
                 val currentWeather = weatherRepository.getCurrentWeather(
@@ -134,58 +154,76 @@ class WeatherBot(
                     apiKey,
                     METRIC
                 )
+
                 bot.sendMessage(
                     chatId = chatId,
                     text = """
-                            🌤 Сейчас в ${session.country}:
-                             ☁ Облачность: ${currentWeather.clouds.all}%
-                            🌡 Температура (градусы): ${currentWeather.main.temp}°C
-                            🙎 ‍Ощущается как: ${currentWeather.main.feels_like}°C
-                            💧 Влажность: ${currentWeather.main.humidity}%
-                            🌪 Скорость ветра: ${currentWeather.wind.speed}м/с
-                            🧭 Давление: ${(currentWeather.main.pressure)*0.75} мм рт. ст.
+                        🌤 Сейчас в ${session.country}:
+                         ☁ Облачность: ${currentWeather.clouds.all}%
+                        🌡 Температура: ${currentWeather.main.temp}°C
+                        🙎‍ Ощущается как: ${currentWeather.main.feels_like}°C
+                        💧 Влажность: ${currentWeather.main.humidity}%
+                        🌪 Ветер: ${currentWeather.wind.speed} м/с
+                        🧭 Давление: ${currentWeather.main.pressure * 0.75} мм рт. ст.
                     """.trimIndent()
                 )
 
                 bot.sendMessage(
                     chatId = chatId,
-                    text = "Если вы хотите узнать погоду в другом городе или еще раз, введите /weather"
+                    text = "Если вы хотите узнать погоду в другом городе или ещё раз — введите /weather"
                 )
+
+                // Удаляем "Узнаем вашу погоду..."
+                if (thinkingMessage?.messageId != null) {
+                    bot.deleteMessage(chatId = chatId, messageId = thinkingMessage.messageId)
+                }
+
                 sessionManager.clearSession(chatId.chatId)
             }
         }
     }
-        private fun Dispatcher.setupCommands() {
-            command("start") {
-                sessionManager.getOrCreateSession(chatId.chatId)
-                bot.sendMessage(
-                    chatId = chatId,
-                    text = "Привет! Я бот, который показывает погоду в вашем городе!\nДля запуска бота введите /weather",
-                )
-            }
-            command("weather") {
-                sessionManager.getOrCreateSession(chatId.chatId)
-                val inlineKeyboardMarkup = InlineKeyboardMarkup.create(
-                    listOf(
-                        InlineKeyboardButton.CallbackData(
-                            text = "Определить мой город по геолокации(для мобильных устройств)",
-                            callbackData = "getMyLocation",
-                        )
-                    ),
-                    listOf(
-                        InlineKeyboardButton.CallbackData(
-                            text = "Ввести город вручную",
-                            callbackData = "enterManually",
-                        )
-                    )
-                )
 
-                bot.sendMessage(
-                    chatId = chatId,
-                    text = "Мне нужно знать твой город!",
-                    replyMarkup = inlineKeyboardMarkup,
-                )
-            }
+    private fun Dispatcher.setupCommands() {
+        command("start") {
+            sessionManager.getOrCreateSession(chatId.chatId)
+            val startMessage = bot.sendMessage(
+                chatId = chatId,
+                text = "Привет! Я бот, который показывает погоду в твоем городе.\nВведи /weather, чтобы начать!"
+            ).getOrNull()
+            sessionManager.getOrCreateSession(chatId.chatId).tempMessageIds.add(startMessage?.messageId)
         }
 
+        command("weather") {
+            sessionManager.getOrCreateSession(chatId.chatId)
+
+            // Удаляем предыдущие служебные сообщения (например, /start)
+            sessionManager.getOrCreateSession(chatId.chatId).tempMessageIds.forEach {
+                bot.deleteMessage(chatId = chatId, messageId = it ?: return@forEach)
+            }
+
+            val inlineKeyboardMarkup = InlineKeyboardMarkup.create(
+                listOf(
+                    InlineKeyboardButton.CallbackData(
+                        text = "Определить мой город по геолокации (для мобильных устройств)",
+                        callbackData = "getMyLocation"
+                    )
+                ),
+                listOf(
+                    InlineKeyboardButton.CallbackData(
+                        text = "Ввести город вручную",
+                        callbackData = "enterManually"
+                    )
+                )
+            )
+
+            val askCityMessage = bot.sendMessage(
+                chatId = chatId,
+                text = "Мне нужно знать твой город!",
+                replyMarkup = inlineKeyboardMarkup
+            ).getOrNull()
+
+            sessionManager.getOrCreateSession(chatId.chatId).tempMessageIds.clear()
+            sessionManager.getOrCreateSession(chatId.chatId).tempMessageIds.add(askCityMessage?.messageId)
+        }
+    }
 }
