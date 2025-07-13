@@ -9,6 +9,9 @@ COPY . .
 # Очищаем кеш Gradle, чтобы избежать конфликтов с версиями Kotlin
 RUN rm -rf /home/gradle/.gradle
 
+# Даем права пользователю gradle на папку /app
+RUN chown -R gradle:gradle /app
+
 USER gradle
 
 # Чистим проект и собираем fat jar за один RUN — чтобы не делать двойную сборку
