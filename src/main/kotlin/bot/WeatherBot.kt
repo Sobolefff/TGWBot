@@ -17,8 +17,6 @@ import kotlinx.coroutines.launch
 import org.example.bot.session.SessionManager
 import org.example.bot.utils.chatId
 import org.example.data.remote.repository.WeatherRepository
-import com.github.kotlintelegrambot.entities.keyboard.ReplyKeyboardMarkup
-import com.github.kotlintelegrambot.entities.keyboard.KeyboardButton
 
 private const val GIF_WAITING_URL = "https://media.tenor.com/OBEfKgDoCogAAAAC/pulp-fiction-john-travolta.gif"
 private const val BOT_ANSWER_TIMEOUT = 30
@@ -67,7 +65,7 @@ class WeatherBot(
                         val response = weatherRepository.getReverseGeocodingCountryName(
                             latitude,
                             longitude,
-                            "jsonv"
+                            "json"
                         )
 
                         val country = response.address.city
@@ -133,7 +131,7 @@ class WeatherBot(
             CoroutineScope(Dispatchers.IO).launch {
                 val currentWeather = weatherRepository.getCurrentWeather(
                     session.country,
-                    System.getenv("API_KEY"),
+                    apiKey,
                     METRIC
                 )
                 bot.sendMessage(
@@ -166,30 +164,28 @@ class WeatherBot(
                 )
             }
             command("weather") {
-    sessionManager.getOrCreateSession(chatId.chatId)
-
-    val locationRequestKeyboard = ReplyKeyboardMarkup(
-        keyboard = listOf(
-            listOf(
-                KeyboardButton(
-                    text = "📍 Определить мой город",
-                    requestLocation = true
+                sessionManager.getOrCreateSession(chatId.chatId)
+                val inlineKeyboardMarkup = InlineKeyboardMarkup.create(
+                    listOf(
+                        InlineKeyboardButton.CallbackData(
+                            text = "Определить мой город по геолокации(для мобильных устройств)",
+                            callbackData = "getMyLocation",
+                        )
+                    ),
+                    listOf(
+                        InlineKeyboardButton.CallbackData(
+                            text = "Ввести город вручную",
+                            callbackData = "enterManually",
+                        )
+                    )
                 )
-            ),
-            listOf(
-                KeyboardButton("✍ Ввести город вручную")
-            )
-        ),
-        resizeKeyboard = true,
-        oneTimeKeyboard = true
-    )
 
-    bot.sendMessage(
-        chatId = chatId,
-        text = "Пожалуйста, выбери способ определения твоего города:",
-        replyMarkup = locationRequestKeyboard
-    )
-}
+                bot.sendMessage(
+                    chatId = chatId,
+                    text = "Мне нужно знать твой город!",
+                    replyMarkup = inlineKeyboardMarkup,
+                )
+            }
         }
 
 }
