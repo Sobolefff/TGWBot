@@ -9,6 +9,8 @@ COPY . .
 # Очищаем кеш Gradle, чтобы избежать конфликтов с версиями Kotlin
 RUN rm -rf /home/gradle/.gradle
 
+USER gradle
+
 # Чистим проект и собираем fat jar за один RUN — чтобы не делать двойную сборку
 RUN ./gradlew clean shadowJar --no-daemon
 
