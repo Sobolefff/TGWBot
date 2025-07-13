@@ -1,6 +1,6 @@
 package org.example.bot
 
-import com.github.kotlintelegrambot.Bot import com.github.kotlintelegrambot.bot import com.github.kotlintelegrambot.dispatch import com.github.kotlintelegrambot.dispatcher.* import com.github.kotlintelegrambot.entities.ChatAction import com.github.kotlintelegrambot.entities.ChatId import com.github.kotlintelegrambot.entities.InlineKeyboardMarkup import com.github.kotlintelegrambot.entities.TelegramFile import com.github.kotlintelegrambot.entities.keyboard.InlineKeyboardButton import com.github.kotlintelegrambot.extensions.filters.Filter import com.github.kotlintelegrambot.logging.LogLevel import com.github.kotlintelegrambot.network.fold import kotlinx.coroutines.CoroutineScope import kotlinx.coroutines.Dispatchers import kotlinx.coroutines.launch import org.example.bot.session.SessionManager import org.example.bot.utils.chatId import org.example.data.remote.repository.WeatherRepository
+import com.github.kotlintelegrambot.Bot import com.github.kotlintelegrambot.bot import com.github.kotlintelegrambot.dispatch import com.github.kotlintelegrambot.dispatcher.* import com.github.kotlintelegrambot.entities.ChatAction import com.github.kotlintelegrambot.entities.ChatId import com.github.kotlintelegrambot.entities.InlineKeyboardMarkup import com.github.kotlintelegrambot.entities.TelegramFile import com.github.kotlintelegrambot.entities.keyboard.InlineKeyboardButton import com.github.kotlintelegrambot.logging.LogLevel import kotlinx.coroutines.CoroutineScope import kotlinx.coroutines.Dispatchers import kotlinx.coroutines.launch import org.example.bot.session.SessionManager import org.example.bot.utils.chatId import org.example.data.remote.repository.WeatherRepository
 
 private const val GIF_WAITING_URL = "https://media.tenor.com/OBEfKgDoCogAAAAC/pulp-fiction-john-travolta.gif" private const val BOT_ANSWER_TIMEOUT = 30 private const val METRIC = "metric"
 
@@ -19,20 +19,64 @@ fun createBot(): Bot {
     }
 }
 
+private fun Dispatcher.setupCommands() {
+    command("start") {
+        sessionManager.getOrCreateSession(chatId.chatId)
+        bot.sendMessage(
+            chatId = chatId,
+            text = "Привет! Я бот, который показывает погоду в вашем городе!\nДля запуска бота введите /weather",
+        ).fold({ message ->
+            bot.deleteMessage(chatId, message.messageId)
+        }, {})
+    }
+
+    command("weather") {
+        sessionManager.getOrCreateSession(chatId.chatId)
+        val inlineKeyboardMarkup = InlineKeyboardMarkup.create(
+            listOf(
+                InlineKeyboardButton.CallbackData(
+                    text = "Определить мой город по геолокации(для мобильных устройств)",
+                    callbackData = "getMyLocation",
+                )
+            ),
+            listOf(
+                InlineKeyboardButton.CallbackData(
+                    text = "Ввести город вручную",
+                    callbackData = "enterManually",
+                )
+            )
+        )
+
+        bot.sendMessage(
+            chatId = chatId,
+            text = "Мне нужно знать твой город!",
+            replyMarkup = inlineKeyboardMarkup,
+        ).fold({ message ->
+            bot.deleteMessage(chatId, message.messageId)
+        }, {})
+    }
+}
+
 private fun Dispatcher.setupCallbacks() {
     callbackQuery("getMyLocation") {
         sessionManager.getOrCreateSession(chatId.chatId)
-        val promptMessage = bot.sendMessage(
+        callbackQuery.message?.messageId?.let {
+            bot.deleteMessage(chatId, it)
+        }
+
+        bot.sendMessage(
             chatId = chatId,
             text = """
-            📍 Отправь мне свою геопозицию через Telegram.
-            
-            Нажми на 📎 (или ➕ в поле ввода) → «Местоположение» → «Отправить».
-        """.trimIndent()
-        )
+            \uD83D\uDCCD Отправь мне свою геопозицию через Telegram.
 
-        val promptMessageId = promptMessage.fold({ it.messageId }, { null })
-        sessionManager.getOrCreateSession(chatId.chatId).tempMessageIds.add(promptMessageId)
+            Нажми на \uD83D\uDCCE (или ➕ в поле ввода) → «Местоположение» → «Отправить».
+            """.trimIndent(),
+        ).fold({ message ->
+            sessionManager.getOrCreateSession(chatId.chatId).let {
+                it.country = "__WAITING_LOCATION__"
+            }
+            bot.deleteMessage(chatId, message.messageId)
+        }, {})
     }
 
     location {
@@ -50,155 +94,82 @@ private fun Dispatcher.setupCallbacks() {
                 )
 
                 val country = response.address.city ?: "Неизвестно"
-                sessionManager.getOrCreateSession(userId).apply {
-                    this.country = country
-                }
+                sessionManager.getOrCreateSession(userId).country = country
 
-                val confirmMessage = bot.sendMessage(
-                    chatId = currentChatId,
-                    text = "Твой город: $country. Верно?\nЕсли неверно — отправь локацию ещё раз",
-                    replyMarkup = InlineKeyboardMarkup.create(
-                        listOf(InlineKeyboardButton.CallbackData("Да, верно", "yes_label"))
-                    )
+                val keyboard = InlineKeyboardMarkup.create(
+                    listOf(InlineKeyboardButton.CallbackData("Да, верно", "yes_label"))
                 )
 
-                val confirmMessageId = confirmMessage.fold({ it.messageId }, { null })
-                sessionManager.getOrCreateSession(userId).tempMessageIds.add(confirmMessageId)
+                bot.sendMessage(
+                    chatId = currentChatId,
+                    text = "Твой город: $country. Верно?\nЕсли неверно — отправь локацию ещё раз",
+                    replyMarkup = keyboard
+                ).fold({ message ->
+                    bot.deleteMessage(currentChatId, message.messageId)
+                }, {})
             } catch (e: Exception) {
                 bot.sendMessage(
                     chatId = currentChatId,
                     text = "Не удалось определить местоположение. Попробуйте снова или введите вручную."
                 )
             }
-
-            // Удаляем сообщение с подсказкой про 📎
-            val session = sessionManager.getOrCreateSession(userId)
-            session.tempMessageIds.forEach { msgId ->
-                msgId?.let {
-                    bot.deleteMessage(
-                        chatId = currentChatId,
-                        messageId = it
-                    )
-                }
-            }
-            session.tempMessageIds.clear()
         }
     }
 
     callbackQuery("enterManually") {
         sessionManager.getOrCreateSession(chatId.chatId)
-        val manualPrompt = bot.sendMessage(
+        callbackQuery.message?.messageId?.let {
+            bot.deleteMessage(chatId, it)
+        }
+
+        bot.sendMessage(
             chatId = chatId,
             text = "Введи свой город вручную",
-        )
-
-        val manualPromptId = manualPrompt.fold({ it.messageId }, { null })
-        sessionManager.getOrCreateSession(chatId.chatId).tempMessageIds.add(manualPromptId)
-
-        message(Filter.Text) {
-            val session = sessionManager.getOrCreateSession(chatId.chatId)
-            session.country = message.text.orEmpty()
-            val confirmMessage = bot.sendMessage(
-                chatId = chatId,
-                text = "Твой город: ${session.country}, верно?\nЕсли неверно, введи город еще раз",
-                replyMarkup = InlineKeyboardMarkup.create(
-                    listOf(InlineKeyboardButton.CallbackData("Да, верно", "yes_label"))
-                )
-            )
-
-            val confirmMsgId = confirmMessage.fold({ it.messageId }, { null })
-            session.tempMessageIds.forEach { id ->
-                id?.let { bot.deleteMessage(chatId = chatId, messageId = it) }
-            }
-            session.tempMessageIds.clear()
-            session.tempMessageIds.add(confirmMsgId)
-        }
+        ).fold({ message ->
+            bot.deleteMessage(chatId, message.messageId)
+        }, {})
     }
 
     callbackQuery("yes_label") {
         val session = sessionManager.getOrCreateSession(chatId.chatId)
+        callbackQuery.message?.messageId?.let {
+            bot.deleteMessage(chatId, it)
+        }
 
-        val loadingMsg = bot.sendMessage(
+        bot.sendAnimation(
             chatId = chatId,
-            text = "Узнаем вашу погоду..."
+            animation = TelegramFile.ByUrl(GIF_WAITING_URL)
         )
 
-        val loadingMessageId = loadingMsg.fold({ it.messageId }, { null })
-
-        CoroutineScope(Dispatchers.IO).launch {
-            val currentWeather = weatherRepository.getCurrentWeather(
-                session.country,
-                apiKey,
-                METRIC
-            )
-
-            bot.sendAnimation(
-                chatId = chatId,
-                animation = TelegramFile.ByUrl(GIF_WAITING_URL)
-            )
-
-            bot.sendMessage(
-                chatId = chatId,
-                text = """
-                    🌤 Сейчас в ${session.country}:
-                     ☁ Облачность: ${currentWeather.clouds.all}%
-                    🌡 Температура (градусы): ${currentWeather.main.temp}°C
-                    🙎 ‍Ощущается как: ${currentWeather.main.feels_like}°C
-                    💧 Влажность: ${currentWeather.main.humidity}%
-                    🌪 Скорость ветра: ${currentWeather.wind.speed}м/с
-                    🧭 Давление: ${(currentWeather.main.pressure)*0.75} мм рт. ст.
-            """.trimIndent()
-            )
-
-            bot.sendMessage(
-                chatId = chatId,
-                text = "Если вы хотите узнать погоду в другом городе или еще раз, введите /weather"
-            )
-
-            // Удаляем временные сообщения
-            session.tempMessageIds.forEach { id ->
-                id?.let { bot.deleteMessage(chatId = chatId, messageId = it) }
-            }
-            loadingMessageId?.let { bot.deleteMessage(chatId = chatId, messageId = it) }
-
-            session.tempMessageIds.clear()
-            sessionManager.clearSession(chatId.chatId)
-        }
-    }
-}
-
-private fun Dispatcher.setupCommands() {
-    command("start") {
-        sessionManager.getOrCreateSession(chatId.chatId)
         bot.sendMessage(
             chatId = chatId,
-            text = "Привет! Я бот, который показывает погоду в вашем городе!\nДля запуска бота введите /weather"
-        )
-    }
+            text = "Узнаем вашу погоду..."
+        ).fold({ loadingMessage ->
+            bot.sendChatAction(chatId = chatId, action = ChatAction.TYPING)
 
-    command("weather") {
-        val session = sessionManager.getOrCreateSession(chatId.chatId)
-        val weatherMessage = bot.sendMessage(
-            chatId = chatId,
-            text = "Мне нужно знать твой город!",
-            replyMarkup = InlineKeyboardMarkup.create(
-                listOf(
-                    InlineKeyboardButton.CallbackData(
-                        text = "Определить мой город по геолокации(для мобильных устройств)",
-                        callbackData = "getMyLocation"
-                    )
-                ),
-                listOf(
-                    InlineKeyboardButton.CallbackData(
-                        text = "Ввести город вручную",
-                        callbackData = "enterManually"
-                    )
+            CoroutineScope(Dispatchers.IO).launch {
+                val currentWeather = weatherRepository.getCurrentWeather(
+                    session.country,
+                    apiKey,
+                    METRIC
                 )
-            )
-        )
+                bot.sendMessage(
+                    chatId = chatId,
+                    text = """
+                        \uD83C\uDF24 Сейчас в ${session.country}:
+                         ☁ Облачность: ${currentWeather.clouds.all}%
+                        \uD83C\uDF21 Температура (градусы): ${currentWeather.main.temp}°C
+                        🙎 ‍Ощущается как: ${currentWeather.main.feels_like}°C
+                        \uD83D\uDCA7 Влажность: ${currentWeather.main.humidity}%
+                        \uD83C\uDF2A Скорость ветра: ${currentWeather.wind.speed}м/с
+                        \uD83E\uDDEB Давление: ${(currentWeather.main.pressure) * 0.75} мм рт. ст.
+                    """.trimIndent()
+                )
 
-        val messageId = weatherMessage.fold({ it.messageId }, { null })
-        session.tempMessageIds.add(messageId)
+                bot.deleteMessage(chatId = chatId, messageId = loadingMessage.messageId)
+                sessionManager.clearSession(chatId.chatId)
+            }
+        }, {})
     }
 }
 
