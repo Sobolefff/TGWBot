@@ -81,7 +81,7 @@ class WeatherBot(
                             "jsonv"
                         )
 
-                        val country = response.address.city
+                        val country = response.address.state
                             ?: "Неизвестно"
 
                         sessionManager.getOrCreateSession(userId).country = country
