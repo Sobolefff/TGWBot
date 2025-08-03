@@ -5,7 +5,7 @@ WORKDIR /app
 COPY . .
 
 # Сборка fat jar
-RUN ./gradlew clean shadowJar --no-daemon -stacktrace -Dorg.gradle.jvmargs="-Xmx512m"
+RUN ./gradlew clean shadowJar --no-daemon --stacktrace -Dorg.gradle.jvmargs="-Xmx256m"
 
 # Финальный образ
 FROM eclipse-temurin:17-jdk-alpine
