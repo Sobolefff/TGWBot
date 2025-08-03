@@ -8,7 +8,7 @@ COPY . .
 RUN ./gradlew clean shadowJar --no-daemon --stacktrace -Dorg.gradle.jvmargs="-Xmx256m"
 
 # Финальный образ
-FROM eclipse-temurin:17-jdk-alpine
+FROM eclipse-temurin:22-jdk-alpine
 
 WORKDIR /app
 COPY --from=builder /app/build/libs/*.jar /app/bot.jar
