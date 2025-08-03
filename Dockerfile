@@ -5,7 +5,7 @@ WORKDIR /app
 COPY . .
 
 # Сборка fat jar
-RUN ./gradlew shadowJar
+RUN ./gradlew --no-daemon shadowJar
 
 # Финальный образ
 FROM eclipse-temurin:17-jdk-alpine
